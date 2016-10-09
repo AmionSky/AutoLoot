@@ -1,2 +1,2 @@
 # AutoLoot
-Wildstar Addon | Automatically need or greed items.
+WildStar Addon | Automatically need or greed items.
