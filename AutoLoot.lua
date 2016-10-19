@@ -6,6 +6,8 @@
 require "Window"
 require "GameLib"
 require "Item"
+require "GroupLib"
+require "GuildLib"
  
 -----------------------------------------------------------------------------------------------
 -- AutoLoot Module Definition
@@ -28,6 +30,7 @@ local tCategoryIds = {
 
 local tDefault = {
 	bEnabled = true,
+	bNoNeedWhenFullGuild = false,
 	nNonNeedableRule = 2,
 
 	tLootRules = {
@@ -48,14 +51,19 @@ function AutoLoot:new(o)
     self.__index = self
 
     -- initialize variables here
-	o.SortMode = 1
-	o.bDocLoaded = false
-	o.tSettings = self:tableClone(tDefault)
 	o.tVersion = {
 		nMajor = 1,
-		nMinor = 0,
+		nMinor = 1,
 		nBuild = 0
 	}
+
+	o.tSettings = self:tableClone(tDefault)
+	
+	o.SortMode = 1
+	o.bDocLoaded = false
+	o.bFullGuildGroup = false
+
+	o.tGuildMembers = {}
 
     return o
 end
@@ -106,6 +114,20 @@ function AutoLoot:OnDocLoaded()
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterEventHandler("LootRollUpdate", "OnLootUpdate", self)
 		Apollo.RegisterSlashCommand("autoloot", "OnConfigure", self)
+
+		Apollo.RegisterEventHandler("Group_Join", "OnGroupUpdated", self)
+		Apollo.RegisterEventHandler("Group_Left", "OnGroupUpdated", self)
+		Apollo.RegisterEventHandler("Group_Add", "OnGroupUpdated", self)
+		Apollo.RegisterEventHandler("Group_Remove", "OnGroupUpdated", self)
+
+		Apollo.RegisterEventHandler("GuildRoster", "OnGuildRoster", self)
+		Apollo.RegisterEventHandler("GuildMemberChange", "OnGuildMemberChange", self)
+
+		for _, tGuild in ipairs(GuildLib.GetGuilds()) do
+			if tGuild:GetType() == GuildLib.GuildType_Guild then
+				tGuild:RequestMembers()
+			end
+		end
 	end
 end
 
@@ -161,8 +183,12 @@ end
 function AutoLoot:UseRule(nRule, nLootId)
 	if nRule == 1 then
 		-- Need
-		GameLib.RollOnLoot(nLootId, true)
-		return true
+		if self.tSettings.bNoNeedWhenFullGuild and self.bFullGuildGroup then
+			return true
+		else
+			GameLib.RollOnLoot(nLootId, true)
+			return true
+		end
 	elseif nRule == 2 then
 		-- Greed
 		GameLib.RollOnLoot(nLootId, false)
@@ -178,6 +204,54 @@ function AutoLoot:UseRule(nRule, nLootId)
 		-- Incorrect
 		return false
 	end
+end
+
+-- Full Guild checks
+
+function AutoLoot:OnGuildMemberChange(guildCurr)
+	if guildCurr:GetType() ~= GuildLib.GuildType_Guild then return end
+
+	guildCurr:RequestMembers()
+end
+
+function AutoLoot:OnGuildRoster(guildCurr, tRoster)
+	if guildCurr:GetType() ~= GuildLib.GuildType_Guild then return end
+	if #self.tGuildMembers == #tRoster then return end
+
+	self.tGuildMembers = {}
+
+	for k,v in ipairs(tRoster) do
+		self.tGuildMembers[k] = v.strName
+	end
+
+	self:OnGroupUpdated()
+end
+
+function AutoLoot:OnGroupUpdated()
+	local nGroupCount = GroupLib.GetMemberCount()
+
+	if nGroupCount <= 1 then self.bFullGuildGroup = false return end
+
+	local bFullGuild = true
+
+	for nIdx = 1, nGroupCount do
+		local tMember = GroupLib.GetGroupMember(nIdx)
+		local bIsGuildMember = false
+
+		for _,v in ipairs(self.tGuildMembers) do
+			if tMember.strCharacterName == v then
+				bIsGuildMember = true
+				break
+			end
+		end
+
+		if not bIsGuildMember then
+			bFullGuild = false
+			break
+		end
+	end
+
+	self.bFullGuildGroup = bFullGuild
 end
 
 -----------------------------------------------------------------------------------------------
@@ -246,6 +320,7 @@ function AutoLoot:LoadSettings()
 	self.wndMain:FindChild("btnRule"):SetCheck(self.SortMode == 2)
 	self.wndMain:FindChild("btnPriority"):SetCheck(self.SortMode == 3)
 	self.wndMain:FindChild("ButtonEnabled"):SetCheck(self.tSettings.bEnabled)
+	self.wndMain:FindChild("ButtonFullGuild"):SetCheck(self.tSettings.bNoNeedWhenFullGuild)
 
 	self:SetupRuleButton(self.wndMain:FindChild("AddRule"), 2)
 	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleNonNeed"), self.tSettings.nNonNeedableRule)
@@ -357,6 +432,10 @@ end
 
 function AutoLoot:ButtonEnabled(wndHandler, wndControl)
 	self.tSettings.bEnabled = wndControl:IsChecked()
+end
+
+function AutoLoot:ButtonFullGuild(wndHandler, wndControl)
+	self.tSettings.bNoNeedWhenFullGuild = wndControl:IsChecked()
 end
 
 -- Header
