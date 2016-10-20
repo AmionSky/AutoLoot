@@ -34,7 +34,6 @@ local tDefault = {
 	nNonNeedableRule = 2,
 
 	tLootRules = {
-		--tById = {},
 		tByName = {},
 		tByCategory = {
 			[tCategoryIds.Survivalist] = 4
@@ -54,7 +53,7 @@ function AutoLoot:new(o)
 	o.tVersion = {
 		nMajor = 1,
 		nMinor = 1,
-		nBuild = 0
+		nBuild = 1
 	}
 
 	o.tSettings = self:tableClone(tDefault)
@@ -157,7 +156,6 @@ function AutoLoot:HandleItem(nLootId, tItem)
 	--Check the LootRules
 	if self:ByNameFindMatch(tItem:GetName(), nLootId) then return end
 
-	--if self:UseRule(self.tSettings.tLootRules.tById[tItem:GetItemId()], nLootId) then return end
 	if self:UseRule(self.tSettings.tLootRules.tByCategory[tItem:GetItemCategory()], nLootId) then return end
 end
 
