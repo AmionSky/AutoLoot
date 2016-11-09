@@ -1,4 +1,5 @@
 package-as: AutoLoot
+enable-nolib-creation: no
 
 ignore:
   - README.md
