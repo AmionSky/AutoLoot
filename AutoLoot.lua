@@ -52,8 +52,8 @@ function AutoLoot:new(o)
     -- initialize variables here
 	o.tVersion = {
 		nMajor = 1,
-		nMinor = 1,
-		nBuild = 3
+		nMinor = 2,
+		nBuild = 0
 	}
 
 	o.tSettings = self:tableClone(tDefault)
@@ -111,8 +111,10 @@ function AutoLoot:OnDocLoaded()
 		
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
-		Apollo.RegisterEventHandler("LootRollUpdate", "OnLootUpdate", self)
+
 		Apollo.RegisterSlashCommand("autoloot", "OnConfigure", self)
+
+		Apollo.RegisterEventHandler("LootRollUpdate", "OnLootUpdate", self)
 
 		Apollo.RegisterEventHandler("Group_Join", "OnGroupUpdated", self)
 		Apollo.RegisterEventHandler("Group_Left", "OnGroupUpdated", self)
@@ -161,13 +163,13 @@ end
 
 function AutoLoot:ByNameFindMatch(strItemName, nLootId)
 	local nFoundRule = nil
-	local bPriority = false
+	local nPriority = 0
 
 	for k,v in pairs(self.tSettings.tLootRules.tByName) do
-		if not bPriority or v.bPriority then
+		if nPriority < #k then
 			if string.find(strItemName, k) ~= nil then
-				bPriority = v.bPriority
 				nFoundRule = v.nRule
+				nPriority = #k
 			end
 		end
 	end
@@ -316,7 +318,6 @@ function AutoLoot:LoadSettings()
 
 	self.wndMain:FindChild("btnName"):SetCheck(self.SortMode == 1)
 	self.wndMain:FindChild("btnRule"):SetCheck(self.SortMode == 2)
-	self.wndMain:FindChild("btnPriority"):SetCheck(self.SortMode == 3)
 	self.wndMain:FindChild("ButtonEnabled"):SetCheck(self.tSettings.bEnabled)
 	self.wndMain:FindChild("ButtonFullGuild"):SetCheck(self.tSettings.bNoNeedWhenFullGuild)
 
@@ -341,7 +342,6 @@ function AutoLoot:RefreshNameList()
 		local wndNewEntry = Apollo.LoadForm(self.xmlDoc, "ListEntry", wndList, self)
 
 		wndNewEntry:FindChild("Name"):SetText(k)
-		wndNewEntry:FindChild("Priority"):SetCheck(v.bPriority)
 
 		self:SetRuleButton(wndNewEntry:FindChild("Rule"), v.nRule)
 	end
@@ -362,10 +362,6 @@ function AutoLoot:SortEntries(wndList)
 		wndList:ArrangeChildrenVert(0, AutoLoot.SortByRule)
 	elseif self.SortMode == -2 then
 		wndList:ArrangeChildrenVert(0, AutoLoot.SortByRuleBack)
-	elseif self.SortMode == 3 then
-		wndList:ArrangeChildrenVert(0, AutoLoot.SortByPriority)
-	elseif self.SortMode == -3 then
-		wndList:ArrangeChildrenVert(0, AutoLoot.SortByPriorityBack)
 	end
 end
 
@@ -392,21 +388,6 @@ function AutoLoot.SortByRuleBack(a,b)
 	return not AutoLoot.SortByRule(a,b)
 end
 
-function AutoLoot.SortByPriority(a,b)
-	local aPriority = a:FindChild("Priority"):IsChecked()
-	local bPriority = b:FindChild("Priority"):IsChecked()
-
-	if aPriority == bPriority then
-		return AutoLoot.SortByName(a,b)
-	else
-		return aPriority
-	end
-end
-
-function AutoLoot.SortByPriorityBack(a,b)
-	return not AutoLoot.SortByPriority(a,b)
-end
-
 -- Sort End
 
 function AutoLoot:OnClose()
@@ -423,7 +404,7 @@ function AutoLoot:OnMove()
 	self:RuleListClear()
 end
 
-function AutoLoot:OnResetSettings()
+function AutoLoot:OnResetSettings() --Currently unused
 	self.tSettings = self:tableClone(tDefault)
 	self:LoadSettings()
 end
@@ -451,11 +432,6 @@ function AutoLoot:OnHeaderButton(wndHandler, wndControl)
 end
 
 -- List
-
-function AutoLoot:OnListPriority(wndHandler, wndControl)
-	local strName = wndControl:GetParent():FindChild("Name"):GetText()
-	self.tSettings.tLootRules.tByName[strName].bPriority = wndControl:IsChecked()
-end
 
 function AutoLoot:OnRemoveEntry(wndHandler, wndControl)
 	local wndEntry = wndControl:GetParent()
@@ -586,11 +562,10 @@ function AutoLoot:OnAddConfirm(wndHandler, wndControl)
 
 	local strAddName = wndAddOptions:FindChild("AddName"):GetText()
 	local nAddRule = wndAddOptions:FindChild("AddRule"):GetData()
-	local bAddPriority = wndAddOptions:FindChild("AddPriority"):IsChecked()
 
 	if strAddName == "" then return end
 
-	self.tSettings.tLootRules.tByName[strAddName] = { bPriority = bAddPriority, nRule = nAddRule }
+	self.tSettings.tLootRules.tByName[strAddName] = { nRule = nAddRule }
 	
 	wndAddOptions:FindChild("AddName"):SetText("")
 
