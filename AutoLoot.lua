@@ -24,19 +24,23 @@ local tRuleNames = {
 	[4] = "Ignore"
 }
 
-local tCategoryIds = {
-	Survivalist = 110
+local tItemCategory = {
+	Survivalist = 110,
+	Dyes = 54,
+	Housing = 67
 }
 
 local tDefault = {
 	bEnabled = true,
 	bNoNeedWhenFullGuild = false,
 	nNonNeedableRule = 2,
+	nUnlockedDyeRule = 4,
 
 	tLootRules = {
 		tByName = {},
 		tByCategory = {
-			[tCategoryIds.Survivalist] = 4
+			[tItemCategory.Survivalist] = 4,
+			[tItemCategory.Housing] = 4
 		}
 	}
 }
@@ -52,7 +56,7 @@ function AutoLoot:new(o)
     -- initialize variables here
 	o.tVersion = {
 		nMajor = 1,
-		nMinor = 2,
+		nMinor = 3,
 		nBuild = 0
 	}
 
@@ -61,7 +65,7 @@ function AutoLoot:new(o)
 	o.SortMode = 1
 	o.bDocLoaded = false
 	o.bFullGuildGroup = false
-
+	o.tCheckedLoot = {}
 	o.tGuildMembers = {}
 
     return o
@@ -142,13 +146,15 @@ function AutoLoot:OnLootUpdate()
 	
 	for _, tLootItem in ipairs(tLoot) do
 		local nLootId = tLootItem.nLootId
-		local tItem = tLootItem.itemDrop
-		
-		self:HandleItem(nLootId, tItem)
+
+		if not self.tCheckedLoot[nLootId] then
+			self:HandleItem(nLootId, tLootItem.itemDrop)
+			self.tCheckedLoot[nLootId] = true
+		end
 	end
 end
 
-function AutoLoot:HandleItem(nLootId, tItem)
+function AutoLoot:HandleItem(nLootId, itemDrop)
 	--If option set, greed non-needable items
 	if self.tSettings.nNonNeedableRule ~= 4 and not GameLib.IsNeedRollAllowed(nLootId) then
 		self:UseRule(self.tSettings.nNonNeedableRule, nLootId)
@@ -156,9 +162,19 @@ function AutoLoot:HandleItem(nLootId, tItem)
 	end
 
 	--Check the LootRules
-	if self:ByNameFindMatch(tItem:GetName(), nLootId) then return end
+	if self:ByNameFindMatch(itemDrop:GetName(), nLootId) then return end
 
-	if self:UseRule(self.tSettings.tLootRules.tByCategory[tItem:GetItemCategory()], nLootId) then return end
+	if self.tSettings.nUnlockedDyeRule ~= 4 and itemDrop:GetItemCategory() == tItemCategory.Dyes then
+		local tItemInfo = itemDrop:GetDetailedInfo()
+
+		if tItemInfo.tPrimary.arUnlocks then
+			for _, tCur in ipairs(tItemInfo.tPrimary.arUnlocks) do
+				if tCur.bUnlocked then self:UseRule(self.tSettings.nUnlockedDyeRule, nLootId) else return end
+			end
+		end
+	end
+
+	if self:UseRule(self.tSettings.tLootRules.tByCategory[itemDrop:GetItemCategory()], nLootId) then return end
 end
 
 function AutoLoot:ByNameFindMatch(strItemName, nLootId)
@@ -176,8 +192,7 @@ function AutoLoot:ByNameFindMatch(strItemName, nLootId)
 
 	if nFoundRule == nil then return false end
 
-	self:UseRule(nFoundRule, nLootId)
-	return true
+	return self:UseRule(nFoundRule, nLootId)
 end
 
 function AutoLoot:UseRule(nRule, nLootId)
@@ -323,7 +338,9 @@ function AutoLoot:LoadSettings()
 
 	self:SetupRuleButton(self.wndMain:FindChild("AddRule"), 2)
 	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleNonNeed"), self.tSettings.nNonNeedableRule)
-	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleSurvivalist"), self.tSettings.tLootRules.tByCategory[tCategoryIds.Survivalist])
+	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleSurvivalist"), self.tSettings.tLootRules.tByCategory[tItemCategory.Survivalist])
+	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleHousing"), self.tSettings.tLootRules.tByCategory[tItemCategory.Housing])
+	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleUnlockedDye"), self.tSettings.nUnlockedDyeRule)
 
 	self:RefreshNameList()
 end
@@ -444,14 +461,11 @@ end
 
 -- Rule Select
 
-function AutoLoot:OnRuleSelectUncheck(wndHandler, wndControl)
-	self:RuleListClear()
-end
-
 function AutoLoot:OnRuleSelectCheck(wndHandler, wndControl)
 	self:RuleListClear()
 
 	local wndChoices = Apollo.LoadForm(self.xmlDoc, "RuleChoiceContainer", nil, self)
+	wndControl:AttachWindow(wndChoices)
 
 	--Set Position
 	wndChoices:SetData(wndControl)
@@ -471,7 +485,7 @@ function AutoLoot:OnRuleSelectCheck(wndHandler, wndControl)
 	local nButtonWidth = wndControl:GetWidth()
 	local nButtonHeight = wndControl:GetHeight()
 	
-	wndChoices:Move(nPosX + nButtonWidth - 20, nPosY - nChoicesHeight / 2 + nButtonHeight / 2, nChoicesWidth, nChoicesHeight)
+	wndChoices:Move(nPosX + nButtonWidth - 30, nPosY - nChoicesHeight / 2 + nButtonHeight / 2, nChoicesWidth, nChoicesHeight)
 
 	local nCurrentData = wndControl:GetData()
 
@@ -505,7 +519,11 @@ function AutoLoot:OnRuleRadio(wndHandler, wndControl)
 	elseif btnName == "SelectRuleNonNeed" then
 		self.tSettings.nNonNeedableRule = nRule
 	elseif btnName == "SelectRuleSurvivalist" then
-		self.tSettings.tLootRules.tByCategory[tCategoryIds.Survivalist] = nRule
+		self.tSettings.tLootRules.tByCategory[tItemCategory.Survivalist] = nRule
+	elseif btnName == "SelectRuleHousing" then
+		self.tSettings.tLootRules.tByCategory[tItemCategory.Housing] = nRule
+	elseif btnName == "SelectRuleUnlockedDye" then
+		self.tSettings.nUnlockedDyeRule = nRule
 	end	
 end
 
@@ -525,10 +543,6 @@ end
 
 function AutoLoot:OnRuleListClosed(wndHandler, wndControl)
 	self.wndListRuleChoices = nil
-
-	if wndControl:GetData() ~= nil then
-		wndControl:GetData():SetCheck(false)
-	end
 end
 
 function AutoLoot:RuleListClear()
