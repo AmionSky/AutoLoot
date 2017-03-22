@@ -33,6 +33,7 @@ local tItemCategory = {
 local tDefault = {
 	bEnabled = true,
 	bNoNeedWhenFullGuild = false,
+	bMessageOnRoll = false,
 	nNonNeedableRule = 2,
 	nUnlockedDyeRule = 4,
 
@@ -116,7 +117,7 @@ function AutoLoot:OnDocLoaded()
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 
-		Apollo.RegisterSlashCommand("autoloot", "OnConfigure", self)
+		Apollo.RegisterSlashCommand("autoloot", "OnSlashCommand", self)
 
 		Apollo.RegisterEventHandler("LootRollUpdate", "OnLootUpdate", self)
 
@@ -155,26 +156,28 @@ function AutoLoot:OnLootUpdate()
 end
 
 function AutoLoot:HandleItem(nLootId, itemDrop)
+	local strItemName = itemDrop:GetName()
+
 	--If option set, greed non-needable items
 	if self.tSettings.nNonNeedableRule ~= 4 and not GameLib.IsNeedRollAllowed(nLootId) then
-		self:UseRule(self.tSettings.nNonNeedableRule, nLootId)
+		self:UseRule(self.tSettings.nNonNeedableRule, nLootId, strItemName)
 		return
 	end
 
 	--Check the LootRules
-	if self:ByNameFindMatch(itemDrop:GetName(), nLootId) then return end
+	if self:ByNameFindMatch(strItemName, nLootId) then return end
 
 	if self.tSettings.nUnlockedDyeRule ~= 4 and itemDrop:GetItemCategory() == tItemCategory.Dyes then
 		local tItemInfo = itemDrop:GetDetailedInfo()
 
 		if tItemInfo.tPrimary.arUnlocks then
 			for _, tCur in ipairs(tItemInfo.tPrimary.arUnlocks) do
-				if tCur.bUnlocked then self:UseRule(self.tSettings.nUnlockedDyeRule, nLootId) else return end
+				if tCur.bUnlocked then self:UseRule(self.tSettings.nUnlockedDyeRule, nLootId, strItemName) else return end
 			end
 		end
 	end
 
-	if self:UseRule(self.tSettings.tLootRules.tByCategory[itemDrop:GetItemCategory()], nLootId) then return end
+	if self:UseRule(self.tSettings.tLootRules.tByCategory[itemDrop:GetItemCategory()], nLootId, strItemName) then return end
 end
 
 function AutoLoot:ByNameFindMatch(strItemName, nLootId)
@@ -192,33 +195,37 @@ function AutoLoot:ByNameFindMatch(strItemName, nLootId)
 
 	if nFoundRule == nil then return false end
 
-	return self:UseRule(nFoundRule, nLootId)
+	return self:UseRule(nFoundRule, nLootId, strItemName)
 end
 
-function AutoLoot:UseRule(nRule, nLootId)
+function AutoLoot:UseRule(nRule, nLootId, strItemName)
+	local bSuccess = false
+
 	if nRule == 1 then
 		-- Need
-		if self.tSettings.bNoNeedWhenFullGuild and self.bFullGuildGroup then
-			return true
-		else
+		if not (self.tSettings.bNoNeedWhenFullGuild and self.bFullGuildGroup) then
 			GameLib.RollOnLoot(nLootId, true)
-			return true
 		end
+		bSuccess = true
 	elseif nRule == 2 then
 		-- Greed
 		GameLib.RollOnLoot(nLootId, false)
-		return true
+		bSuccess = true
 	elseif nRule == 3 then
 		-- Pass
 		GameLib.PassOnLoot(nLootId)
-		return true
+		bSuccess = true
 	elseif nRule == 4 then
 		-- Ignore
-		return true
-	else
-		-- Incorrect
-		return false
+		bSuccess = true
 	end
+
+	if bSuccess and self.tSettings.bMessageOnRoll and nRule < 4 and strItemName then
+		local msg = "AutoLoot: "..tRuleNames[nRule].."ed on item: "..strItemName
+		ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_System, msg)
+	end
+
+	return bSuccess
 end
 
 -- Full Guild checks
@@ -302,6 +309,44 @@ function AutoLoot:tableClone(t)
     return target
 end
 
+function AutoLoot:Print(strText)
+	if strText then Print("Auto Loot: "..strText) end
+end
+
+-----------------------------------------------------------------------------------------------
+-- AutoLoot Command Functions
+-----------------------------------------------------------------------------------------------
+function AutoLoot:OnSlashCommand(slash, args)
+	local tBoolText = { [true] = "Enabled", [false] = "Disabled" }
+
+	if args == "config" or args == "options" then
+		self:OnConfigure()
+	elseif args == "toggle" then
+		self.tSettings.bEnabled = not self.tSettings.bEnabled
+		self:Print(tBoolText[self.tSettings.bEnabled])
+	elseif args == "enable" then
+		self.tSettings.bEnabled = true
+		self:Print(tBoolText[true])
+	elseif args == "disable" then
+		self.tSettings.bEnabled = false
+		self:Print(tBoolText[false])
+	elseif args == "rollmsg" then
+		self.tSettings.bMessageOnRoll = not self.tSettings.bMessageOnRoll
+		self:Print("Roll Messages "..tBoolText[self.tSettings.bMessageOnRoll])
+	elseif args == "reset" then
+		self:OnResetSettings()
+		self:Print("Settings Reset")
+	else
+		Print("---  Auto Loot Help  ---")
+		Print("config | Open settings window")
+		Print("toggle | Enable / Disable")
+		Print("enable | Enable the addon")
+		Print("disable | Disable the addon")
+		Print("rollmsg | Toggle messages on roll")
+		Print("reset | Reset to default settings")
+	end
+end
+
 -----------------------------------------------------------------------------------------------
 -- AutoLootForm Functions
 -----------------------------------------------------------------------------------------------
@@ -335,6 +380,7 @@ function AutoLoot:LoadSettings()
 	self.wndMain:FindChild("btnRule"):SetCheck(self.SortMode == 2)
 	self.wndMain:FindChild("ButtonEnabled"):SetCheck(self.tSettings.bEnabled)
 	self.wndMain:FindChild("ButtonFullGuild"):SetCheck(self.tSettings.bNoNeedWhenFullGuild)
+	self.wndMain:FindChild("ButtonRollMessage"):SetCheck(self.tSettings.bMessageOnRoll)
 
 	self:SetupRuleButton(self.wndMain:FindChild("AddRule"), 2)
 	self:SetupRuleButton(self.wndMain:FindChild("SelectRuleNonNeed"), self.tSettings.nNonNeedableRule)
@@ -421,9 +467,9 @@ function AutoLoot:OnMove()
 	self:RuleListClear()
 end
 
-function AutoLoot:OnResetSettings() --Currently unused
+function AutoLoot:OnResetSettings()
 	self.tSettings = self:tableClone(tDefault)
-	self:LoadSettings()
+	if self.wndMain ~= nil then self:LoadSettings() end
 end
 
 function AutoLoot:ButtonEnabled(wndHandler, wndControl)
@@ -432,6 +478,10 @@ end
 
 function AutoLoot:ButtonFullGuild(wndHandler, wndControl)
 	self.tSettings.bNoNeedWhenFullGuild = wndControl:IsChecked()
+end
+
+function AutoLoot:ButtonRollMessage(wndHandler, wndControl)
+	self.tSettings.bMessageOnRoll = wndControl:IsChecked()
 end
 
 -- Header
@@ -489,7 +539,7 @@ function AutoLoot:OnRuleSelectCheck(wndHandler, wndControl)
 
 	local nCurrentData = wndControl:GetData()
 
-	for k,v in ipairs(wndChoices:FindChild("Controls"):GetChildren()) do
+	for _,v in ipairs(wndChoices:FindChild("Controls"):GetChildren()) do
 		v:SetCheck(nCurrentData == v:GetContentId())
 	end
 	
