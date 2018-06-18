@@ -58,7 +58,7 @@ function AutoLoot:new(o)
 	o.tVersion = {
 		nMajor = 1,
 		nMinor = 3,
-		nBuild = 0
+		nBuild = 1
 	}
 
 	o.tSettings = self:tableClone(tDefault)
