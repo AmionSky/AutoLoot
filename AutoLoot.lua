@@ -2,18 +2,18 @@
 -- Client Lua Script for AutoLoot
 -- Copyright (c) NCsoft. All rights reserved
 -----------------------------------------------------------------------------------------------
- 
+
 require "Window"
 require "GameLib"
 require "Item"
 require "GroupLib"
 require "GuildLib"
- 
+
 -----------------------------------------------------------------------------------------------
 -- AutoLoot Module Definition
 -----------------------------------------------------------------------------------------------
-local AutoLoot = {} 
- 
+local AutoLoot = {}
+
 -----------------------------------------------------------------------------------------------
 -- Constants
 -----------------------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ local tDefault = {
 		}
 	}
 }
- 
+
 -----------------------------------------------------------------------------------------------
 -- Initialization
 -----------------------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ function AutoLoot:new(o)
 	}
 
 	o.tSettings = self:tableClone(tDefault)
-	
+
 	o.SortMode = 1
 	o.bDocLoaded = false
 	o.bFullGuildGroup = false
@@ -80,7 +80,7 @@ function AutoLoot:Init()
 	}
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
- 
+
 
 -----------------------------------------------------------------------------------------------
 -- AutoLoot OnLoad
@@ -113,7 +113,7 @@ function AutoLoot:OnDocLoaded()
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
-		
+
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 
@@ -144,7 +144,7 @@ function AutoLoot:OnLootUpdate()
 	if not self.tSettings.bEnabled then return end
 
 	local tLoot = GameLib.GetLootRolls()
-	
+
 	for _, tLootItem in ipairs(tLoot) do
 		local nLootId = tLootItem.nLootId
 
@@ -281,15 +281,15 @@ end
 -----------------------------------------------------------------------------------------------
 function AutoLoot:tableMerge(t1, t2)
     for k,v in pairs(t2) do
-    	if type(v) == "table" then
-    		if type(t1[k] or false) == "table" then
-    			self:tableMerge(t1[k] or {}, t2[k] or {})
-    		else
-    			t1[k] = v
-    		end
-    	else
-    		t1[k] = v
-    	end
+		if type(v) == "table" then
+			if type(t1[k] or false) == "table" then
+				self:tableMerge(t1[k] or {}, t2[k] or {})
+			else
+				t1[k] = v
+			end
+		else
+			t1[k] = v
+		end
     end
     return t1
 end
@@ -400,7 +400,7 @@ function AutoLoot:RefreshNameList()
 	local wndList = self.wndMain:FindChild("RuleList")
 
 	wndList:DestroyChildren()
-	
+
 	for k,v in pairs(self.tSettings.tLootRules.tByName) do
 		local wndNewEntry = Apollo.LoadForm(self.xmlDoc, "ListEntry", wndList, self)
 
@@ -534,7 +534,7 @@ function AutoLoot:OnRuleSelectCheck(wndHandler, wndControl)
 	local nChoicesHeight = wndChoices:GetHeight()
 	local nButtonWidth = wndControl:GetWidth()
 	local nButtonHeight = wndControl:GetHeight()
-	
+
 	wndChoices:Move(nPosX + nButtonWidth - 30, nPosY - nChoicesHeight / 2 + nButtonHeight / 2, nChoicesWidth, nChoicesHeight)
 
 	local nCurrentData = wndControl:GetData()
@@ -542,7 +542,7 @@ function AutoLoot:OnRuleSelectCheck(wndHandler, wndControl)
 	for _,v in ipairs(wndChoices:FindChild("Controls"):GetChildren()) do
 		v:SetCheck(nCurrentData == v:GetContentId())
 	end
-	
+
 	if wndControl:GetContentId() == 1 then
 		wndChoices:FindChild("Controls"):FindChild("Need"):Enable(false)
 	end
@@ -574,7 +574,7 @@ function AutoLoot:OnRuleRadio(wndHandler, wndControl)
 		self.tSettings.tLootRules.tByCategory[tItemCategory.Housing] = nRule
 	elseif btnName == "SelectRuleUnlockedDye" then
 		self.tSettings.nUnlockedDyeRule = nRule
-	end	
+	end
 end
 
 function AutoLoot:SetRuleButton(btnRule, nRule)
@@ -605,7 +605,7 @@ end
 
 function AutoLoot:OnDragDropItem(wndHandler, wndControl, x, y, wndSource, strType, nItemSourceLoc)
 	if strType ~= "DDBagItem" or wndHandler ~= wndControl then return end
-	
+
 	local itemDropped = Item.GetItemFromInventoryLoc(nItemSourceLoc)
 	if not itemDropped then return end
 
@@ -630,7 +630,7 @@ function AutoLoot:OnAddConfirm(wndHandler, wndControl)
 	if strAddName == "" then return end
 
 	self.tSettings.tLootRules.tByName[strAddName] = { nRule = nAddRule }
-	
+
 	wndAddOptions:FindChild("AddName"):SetText("")
 
 	self:RefreshNameList()
