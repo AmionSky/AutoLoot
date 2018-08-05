@@ -50,11 +50,11 @@ local tDefault = {
 -- Initialization
 -----------------------------------------------------------------------------------------------
 function AutoLoot:new(o)
-    o = o or {}
-    setmetatable(o, self)
-    self.__index = self
+	o = o or {}
+	setmetatable(o, self)
+	self.__index = self
 
-    -- initialize variables here
+	-- initialize variables here
 	o.tVersion = {
 		nMajor = 1,
 		nMinor = 3,
@@ -69,7 +69,7 @@ function AutoLoot:new(o)
 	o.tCheckedLoot = {}
 	o.tGuildMembers = {}
 
-    return o
+	return o
 end
 
 function AutoLoot:Init()
@@ -78,7 +78,7 @@ function AutoLoot:Init()
 	local tDependencies = {
 		-- "UnitOrPackageName",
 	}
-    Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
+	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
 
 
@@ -86,7 +86,7 @@ end
 -- AutoLoot OnLoad
 -----------------------------------------------------------------------------------------------
 function AutoLoot:OnLoad()
-    -- load our form file
+	-- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("AutoLoot.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 end
@@ -109,13 +109,7 @@ end
 -----------------------------------------------------------------------------------------------
 function AutoLoot:OnDocLoaded()
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
-	    self.bDocLoaded = true
-
-		-- if the xmlDoc is no longer needed, you should set it to nil
-		-- self.xmlDoc = nil
-
-		-- Register handlers for events, slash commands and timer, etc.
-		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
+		self.bDocLoaded = true
 
 		Apollo.RegisterSlashCommand("autoloot", "OnSlashCommand", self)
 
@@ -280,7 +274,7 @@ end
 -- AutoLoot Lib
 -----------------------------------------------------------------------------------------------
 function AutoLoot:tableMerge(t1, t2)
-    for k,v in pairs(t2) do
+	for k,v in pairs(t2) do
 		if type(v) == "table" then
 			if type(t1[k] or false) == "table" then
 				self:tableMerge(t1[k] or {}, t2[k] or {})
@@ -290,23 +284,23 @@ function AutoLoot:tableMerge(t1, t2)
 		else
 			t1[k] = v
 		end
-    end
-    return t1
+	end
+	return t1
 end
 
 function AutoLoot:tableClone(t)
-    if type(t) ~= "table" then return t end
-    local meta = getmetatable(t)
-    local target = {}
-    for k, v in pairs(t) do
-        if type(v) == "table" then
-            target[k] = self:tableClone(v)
-        else
-            target[k] = v
-        end
-    end
-    setmetatable(target, meta)
-    return target
+	if type(t) ~= "table" then return t end
+	local meta = getmetatable(t)
+	local target = {}
+	for k, v in pairs(t) do
+		if type(v) == "table" then
+			target[k] = self:tableClone(v)
+		else
+			target[k] = v
+		end
+	end
+	setmetatable(target, meta)
+	return target
 end
 
 function AutoLoot:Print(strText)
@@ -338,12 +332,12 @@ function AutoLoot:OnSlashCommand(slash, args)
 		self:Print("Settings Reset")
 	else
 		Print("---  Auto Loot Help  ---")
-		Print("config | Open settings window")
-		Print("toggle | Enable / Disable")
-		Print("enable | Enable the addon")
+		Print("config  | Open settings window")
+		Print("toggle  | Enable / Disable")
+		Print("enable  | Enable the addon")
 		Print("disable | Disable the addon")
 		Print("rollmsg | Toggle messages on roll")
-		Print("reset | Reset to default settings")
+		Print("reset   | Reset to default settings")
 	end
 end
 
