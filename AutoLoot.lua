@@ -58,7 +58,7 @@ function AutoLoot:new(o)
 	o.tVersion = {
 		nMajor = 1,
 		nMinor = 3,
-		nBuild = 1
+		nBuild = 2
 	}
 
 	o.tSettings = self:tableClone(tDefault)
@@ -66,7 +66,7 @@ function AutoLoot:new(o)
 	o.SortMode = 1
 	o.bDocLoaded = false
 	o.bFullGuildGroup = false
-	o.tCheckedLoot = {}
+	--o.tCheckedLoot = {} --need reset sometimes
 	o.tGuildMembers = {}
 
 	return o
@@ -142,10 +142,11 @@ function AutoLoot:OnLootUpdate()
 	for _, tLootItem in ipairs(tLoot) do
 		local nLootId = tLootItem.nLootId
 
-		if not self.tCheckedLoot[nLootId] then
+		--need to reset tCheckedLoot sometimes
+		--if not self.tCheckedLoot[nLootId] then 
 			self:HandleItem(nLootId, tLootItem.itemDrop)
-			self.tCheckedLoot[nLootId] = true
-		end
+			--self.tCheckedLoot[nLootId] = true
+		--end
 	end
 end
 
@@ -271,7 +272,7 @@ function AutoLoot:OnGroupUpdated()
 end
 
 -----------------------------------------------------------------------------------------------
--- AutoLoot Lib
+-- AutoLoot Helpers
 -----------------------------------------------------------------------------------------------
 function AutoLoot:tableMerge(t1, t2)
 	for k,v in pairs(t2) do
@@ -303,8 +304,12 @@ function AutoLoot:tableClone(t)
 	return target
 end
 
+function AutoLoot:SystemPrint(msg)
+	ChatSystemLib.PostOnChannel(ChatSystemLib.ChatChannel_System, msg)
+end
+
 function AutoLoot:Print(strText)
-	if strText then Print("Auto Loot: "..strText) end
+	if strText then self:SystemPrint("Auto Loot: "..strText) end
 end
 
 -----------------------------------------------------------------------------------------------
@@ -331,13 +336,13 @@ function AutoLoot:OnSlashCommand(slash, args)
 		self:OnResetSettings()
 		self:Print("Settings Reset")
 	else
-		Print("---  Auto Loot Help  ---")
-		Print("config  | Open settings window")
-		Print("toggle  | Enable / Disable")
-		Print("enable  | Enable the addon")
-		Print("disable | Disable the addon")
-		Print("rollmsg | Toggle messages on roll")
-		Print("reset   | Reset to default settings")
+		self:SystemPrint("---  Auto Loot Help  ---")
+		self:SystemPrint("config | Open settings window")
+		self:SystemPrint("toggle | Enable / Disable")
+		self:SystemPrint("enable | Enable the addon")
+		self:SystemPrint("disable | Disable the addon")
+		self:SystemPrint("rollmsg | Toggle messages on roll")
+		self:SystemPrint("reset | Reset to default settings")
 	end
 end
 
